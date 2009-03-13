@@ -15,4 +15,13 @@ options:
     name: Timeout
     notes: maximum amount of time to wait for a response
     default: 0.25
+  units:
+    name: sizes units for stats fields
+    notes: use either B, KB, MB, GB. Apply only to bytes, limit_maxbytes, bytes_read, bytes_written metrics
+    default: MB
+  metrics:
+    name: stats metrics to monitor
+    notes: see available metrics in http://code.sixapart.com/svn/memcached/trunk/server/doc/protocol.txt
+    default: cmd_get, cmd_set, get_misses, get_hits, evictions, curr_connections, curr_items, bytes, limit_maxbytes
+    
   

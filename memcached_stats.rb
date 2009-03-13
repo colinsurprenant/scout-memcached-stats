@@ -14,7 +14,7 @@ class TestFailed < StandardError; end
 
 class MemcachedMonitor < Scout::Plugin
 
-  STATS_METRICS = ["cmd_get", "cmd_set", "get_misses", "curr_connections", "get_hits", "evictions", "curr_items", "bytes", "limit_maxbytes"]
+  SIZE_METRICS = ["bytes", "limit_maxbytes", "bytes_read", "bytes_written"]
   VALUE_CHARS = ('a'..'z').to_a
   
   attr_accessor :connection  
@@ -78,8 +78,33 @@ class MemcachedMonitor < Scout::Plugin
       raise TestFailed, "unable to retrieve stats from #{option(:host)}:#{option(:port)}"
     end
     report_stats = {}
-    STATS_METRICS.each { |k| report_stats[k] = host_stats[k] }
+    option(:metrics).split(/\s*,\s/).each { |k| report_stats[add_unit(k)] = host_stats[k] }
+    SIZE_METRICS.each do |k|
+      new_k = add_unit(k)
+      report_stats[new_k] = cast_unit(report_stats[new_k], option(:units)) if report_stats.has_key?(new_k)
+    end
     return report_stats
+  end
+    
+  def add_unit(k)
+    SIZE_METRICS.include?(k) ? "#{k}(#{option(:units)})" : k
+  end
+  
+  def cast_unit(bytes, unit)
+    case unit
+      when "B"
+        return bytes
+      when "KB"
+        return round_to(bytes / 1024, 2)
+      when "MB" 
+        return round_to(bytes / (1024 * 1024), 2)
+      when "GB"
+        return round_to(bytes / (1024 * 1024 * 1024), 2)
+    end
+  end
+
+  def round_to(f, x)
+    (f * 10**x).round.to_f / 10**x
   end
 
   def timeout_value
