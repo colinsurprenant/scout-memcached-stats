@@ -7,13 +7,15 @@
 #
 # Author: Colin Surprenant, colin.surprenant@praizedmedia.com, http://github.com/colinsurprenant
 #
-
 require 'timeout'
+
 class MissingLibrary < StandardError; end
 class TestFailed < StandardError; end 
+
 class MemcachedMonitor < Scout::Plugin
 
   STATS_METRICS = ["cmd_get", "cmd_set", "get_misses", "curr_connections", "get_hits", "evictions", "curr_items", "bytes", "limit_maxbytes"]
+  VALUE_CHARS = ('a'..'z').to_a
   
   attr_accessor :connection  
   
@@ -25,10 +27,10 @@ class MemcachedMonitor < Scout::Plugin
         require "rubygems"
         require 'memcache'
       rescue LoadError
-        raise MissingLibrary
+        raise MissingLibrary, "could not load the memcache gem"
       end
     end
-    self.connection=MemCache.new("#{option(:host)}:#{option(:port)}")
+    self.connection = MemCache.new("#{option(:host)}:#{option(:port)}")
   end
   
   def build_report
@@ -36,47 +38,44 @@ class MemcachedMonitor < Scout::Plugin
       setup_memcache
       test_setting_value
       test_getting_value
-      report(option(:host)=>"OK")
-      reports << gather_stats
+      report(gather_stats)
+    rescue MissingLibrary => e
+      # the MissingLibrary rescue must be before the MemCache::MemCacheError rescue because
+      # if the gem is not loaded, the exception class will not be defined either.
+      error("missing library", e.message)
     rescue Timeout::Error => e
-      alert("Memcached failed to respond","Memcached on #{option(:host)} failed to respond within #{timeout_value} seconds")
+      alert("memcached timeout", "memcached on #{option(:host)}:#{option(:port)} failed to respond within #{timeout_value} seconds")
     rescue MemCache::MemCacheError => e
-      alert("Memcache connection failed","unable to connect to memcache on #{option(:host)}")
-    rescue TestFailed=>e
-      #do nothing, we already alerted, so no report  
-    rescue MissingLibrary=>e
-      error("Could not load all required libraries",
-            "I failed to load the starling library. Please make sure it is installed.")
-    rescue Exception=>e
-      error("Got unexpected error: #{e} #{e.class}")
+      alert("memcache connection failed", "unable to connect to memcached on #{option(:host)}:#{option(:port)}")
+    rescue TestFailed => e
+      alert(e.message)
+    rescue Exception => e
+      error("unexpected exception: #{e.class}, #{e.message}")
     end
   end
-  
+
   def test_setting_value
-    @test_value=rand.to_s
+    @test_value = (1..4).collect { |a| VALUE_CHARS[rand(VALUE_CHARS.size)] }.join
     timeout(timeout_value) do
-      connection.set(option(:key),@test_value)
+      connection.set(option(:key), @test_value)
     end
   end
-  
+
   def test_getting_value
-    value=""
-    timeout(timeout_value) do
-      value=connection.get(option(:key))
+    value = timeout(timeout_value) do
+      connection.get(option(:key))
     end
     if value != @test_value
-      alert("Unable to retrieve key from #{option(:host)}","Expected #{@test_value} but got #{value}")
-      raise TestFailed
+      raise TestFailed, "bad data from #{option(:host)}, expected #{@test_value} but got #{value}"
     end
   end
-    
+
   def gather_stats
     stats = timeout(timeout_value) do
       connection.stats
     end
     unless (host_stats = stats["#{option(:host)}:#{option(:port)}"])
-      alert("Unable to retrieve stats from #{option(:host)}:#{option(:port)}")
-      raise TestFailed
+      raise TestFailed, "unable to retrieve stats from #{option(:host)}:#{option(:port)}"
     end
     report_stats = {}
     STATS_METRICS.each { |k| report_stats[k] = host_stats[k] }
@@ -84,7 +83,7 @@ class MemcachedMonitor < Scout::Plugin
   end
 
   def timeout_value
-    (option(:timeout)||1).to_f
+    (option(:timeout) || 1).to_f
   end
 
 end
