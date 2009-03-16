@@ -97,7 +97,7 @@ class MemcachedMonitor < Scout::Plugin
   def key_names(k)
     keys = k.split(/\s*:\s*/)
     keys << k if keys.size == 1
-    keys[1] = "#{keys[1]}(#{option(:units)})" if SIZE_METRICS.include?(keys[0])
+    keys[1] = "#{keys[1]}_#{option(:units)}" if SIZE_METRICS.include?(keys[0])
     return keys
   end
     
