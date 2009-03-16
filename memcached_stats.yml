@@ -22,6 +22,6 @@ options:
   metrics:
     name: stats metrics to monitor
     notes: see available metrics in http://code.sixapart.com/svn/memcached/trunk/server/doc/protocol.txt
-    default: cmd_get, cmd_set, get_misses, get_hits, evictions, curr_connections, curr_items, bytes, limit_maxbytes
+    default: cmd_get:get_count, cmd_set:set_count, get_misses, get_hits, evictions, curr_connections:current_connections, curr_items:total_items, bytes:current_data, limit_maxbytes:max_data
     
   

@@ -77,19 +77,30 @@ class MemcachedMonitor < Scout::Plugin
     unless (host_stats = stats["#{option(:host)}:#{option(:port)}"])
       raise TestFailed, "unable to retrieve stats from #{option(:host)}:#{option(:port)}"
     end
+    metrics = parse_metrics_option
     report_stats = {}
-    option(:metrics).split(/\s*,\s/).each { |k| report_stats[add_unit(k)] = host_stats[k] }
-    SIZE_METRICS.each do |k|
-      new_k = add_unit(k)
-      report_stats[new_k] = cast_unit(report_stats[new_k], option(:units)) if report_stats.has_key?(new_k)
+    metrics.each do |stats_key, report_key|
+      report_stats[report_key] = SIZE_METRICS.include?(stats_key) ? cast_unit(host_stats[stats_key], option(:units)) : host_stats[stats_key]
     end
     return report_stats
   end
-    
-  def add_unit(k)
-    SIZE_METRICS.include?(k) ? "#{k}(#{option(:units)})" : k
-  end
   
+  def parse_metrics_option
+    metrics = {}
+    option(:metrics).split(/\s*,\s/).each do |k|
+      old_key, new_key = key_names(k)
+      metrics[old_key] = new_key
+    end
+    return metrics
+  end
+    
+  def key_names(k)
+    keys = k.split(/\s*:\s*/)
+    keys << k if keys.size == 1
+    keys[1] = "#{keys[1]}(#{option(:units)})" if SIZE_METRICS.include?(keys[0])
+    return keys
+  end
+    
   def cast_unit(bytes, unit)
     case unit
       when "B"
