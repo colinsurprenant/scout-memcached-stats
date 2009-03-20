@@ -1,5 +1,7 @@
 # memcached_stats Scout Plugin
 
+* github repository: [http://github.com/colinsurprenant/scout-memcached-stats/](http://github.com/colinsurprenant/scout-memcached-stats/)
+
 [Scout](http://scoutapp.com/) plugin  to monitor and gather statistics of a memcached server.
 
 This plugin is based on the memcached_monitor.rb plugin written by Mike Mangino [http://github.com/mmangino/](http://github.com/mmangino/).
