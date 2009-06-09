@@ -22,9 +22,10 @@ class MemcachedMonitor < Scout::Plugin
     "gets_per_sec"      => "cmd_get",
     "sets_per_sec"      => "cmd_set", 
     "misses_per_sec"    => "get_misses",
+    "hits_per_sec"      => "get_hits",
     "evictions_per_sec" => "evictions"
   }
-  
+
   attr_accessor :connection  
   
   def setup_memcache
@@ -57,8 +58,6 @@ class MemcachedMonitor < Scout::Plugin
       alert("memcache connection failed", "unable to connect to memcached on #{option(:host)}:#{option(:port)}")
     rescue TestFailed => e
       alert(e.message)
-    rescue Exception => e
-      error("unexpected exception: #{e.class}, #{e.message}")
     end
   end
 
@@ -103,7 +102,7 @@ class MemcachedMonitor < Scout::Plugin
       
       rates_keys.each do |key|
         raise(InvalidConfig, "invalid rate key: #{key}") unless RATE_KEYS_MAP[key]
-        rate = (host_stats[RATE_KEYS_MAP[key]].to_i - memory("last_run_#{key}".to_sym)) / duration
+        rate = (host_stats[RATE_KEYS_MAP[key]].to_i - memory("last_run_#{key}".to_sym).to_i) / duration
         raise(BadData, "#{key} have decreased since last report") if rate < 0
         report_stats[key] = round_to(rate, 1)
         remember("last_run_#{key}".to_sym => host_stats[RATE_KEYS_MAP[key]].to_i)
