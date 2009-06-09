@@ -103,10 +103,10 @@ class MemcachedMonitor < Scout::Plugin
       
       rates_keys.each do |key|
         raise(InvalidConfig, "invalid rate key: #{key}") unless RATE_KEYS_MAP[key]
-        rate = (host_stats[RATE_KEYS_MAP[key]] - memory("last_run_#{key}".to_sym)) / duration
+        rate = (host_stats[RATE_KEYS_MAP[key]].to_i - memory("last_run_#{key}".to_sym)) / duration
         raise(BadData, "#{key} have decreased since last report") if rate < 0
         report_stats[key] = round_to(rate, 1)
-        remember("last_run_#{key}".to_sym => host_stats[RATE_KEYS_MAP[key]])
+        remember("last_run_#{key}".to_sym => host_stats[RATE_KEYS_MAP[key]].to_i)
       end    
     end
     remember(:last_run_time => now)
