@@ -5,7 +5,7 @@ options:
     default: 127.0.0.1
   port:
     name: Port
-    notes: The port starling is running on
+    notes: The port memcached is running on
     default: 11211
   key:
     name: Key to use for testing
@@ -23,5 +23,7 @@ options:
     name: stats metrics to monitor
     notes: see available metrics in http://code.sixapart.com/svn/memcached/trunk/server/doc/protocol.txt
     default: cmd_get:get_count, cmd_set:set_count, get_misses, get_hits, evictions, curr_connections:current_connections, curr_items:total_items, bytes:current_data, limit_maxbytes:max_data
-    
-  
+  rates:
+    name: computed rates stats
+    notes: these values will be computed to expose per/second statistics
+    default: gets_per_sec, sets_per_sec, misses_per_sec, hits_per_sec, evictions_per_sec

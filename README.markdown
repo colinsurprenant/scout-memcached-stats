@@ -24,6 +24,11 @@ tbd
 
 ## Changelog
 
+**Version 1.1: 2009-06-09**
+
+* (Colin Surprenant) Added rates computation.
+* (Colin Surprenant) Code cleanup.
+
 **Version 1.0: 2009-03-13**
 
 * (Colin Surprenant) Inital release.

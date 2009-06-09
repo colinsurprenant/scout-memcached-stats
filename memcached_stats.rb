@@ -11,11 +11,19 @@ require 'timeout'
 
 class MissingLibrary < StandardError; end
 class TestFailed < StandardError; end 
+class BadData < StandardError; end 
+class InvalidConfig < StandardError; end 
 
 class MemcachedMonitor < Scout::Plugin
 
   SIZE_METRICS = ["bytes", "limit_maxbytes", "bytes_read", "bytes_written"]
   VALUE_CHARS = ('a'..'z').to_a
+  RATE_KEYS_MAP = {
+    "gets_per_sec"      => "cmd_get",
+    "sets_per_sec"      => "cmd_set", 
+    "misses_per_sec"    => "get_misses",
+    "evictions_per_sec" => "evictions"
+  }
   
   attr_accessor :connection  
   
@@ -71,29 +79,58 @@ class MemcachedMonitor < Scout::Plugin
   end
 
   def gather_stats
+    now = Time.now
+    
+    # grab stats and validate returned structure
     stats = timeout(timeout_value) do
       connection.stats
     end
     unless (host_stats = stats["#{option(:host)}:#{option(:port)}"])
-      raise TestFailed, "unable to retrieve stats from #{option(:host)}:#{option(:port)}"
+      raise(TestFailed, "unable to retrieve stats from #{option(:host)}:#{option(:port)}")
     end
-    metrics = parse_metrics_option
+    
     report_stats = {}
-    metrics.each do |stats_key, report_key|
+    
+    # fill report with gathered stats
+    metric_keys_map.each do |stats_key, report_key|
       report_stats[report_key] = SIZE_METRICS.include?(stats_key) ? cast_unit(host_stats[stats_key], option(:units)) : host_stats[stats_key]
     end
+    
+    # fill report with computed stats
+    if (last_run_time = memory(:last_run_time))
+      duration = now - last_run_time
+      raise(BadData, "cannot compute rates without duration") if duration <= 0
+      
+      rates_keys.each do |key|
+        raise(InvalidConfig, "invalid rate key: #{key}") unless RATE_KEYS_MAP[key]
+        rate = (host_stats[RATE_KEYS_MAP[key]] - memory("last_run_#{key}".to_sym)) / duration
+        raise(BadData, "#{key} have decreased since last report") if rate < 0
+        report_stats[key] = round_to(rate, 1)
+        remember("last_run_#{key}".to_sym => host_stats[RATE_KEYS_MAP[key]])
+      end    
+    end
+    remember(:last_run_time => now)
+    
     return report_stats
   end
   
-  def parse_metrics_option
-    metrics = {}
-    option(:metrics).split(/\s*,\s/).each do |k|
-      old_key, new_key = key_names(k)
-      metrics[old_key] = new_key
+  def rates_keys
+    return option(:rates).to_s.split(/\s*,\s*/)
+  end
+  
+  # return a hash to map original metric name as returned by memcached (stats_key) to nicer name as configured in options (report_key)
+  def metric_keys_map
+    keys_map = {}
+    option(:metrics).to_s.split(/\s*,\s*/).each do |k|
+      stats_key, report_key = key_names(k)
+      keys_map[stats_key] = report_key
     end
-    return metrics
+    return keys_map
   end
     
+  # return tupple [stats_key, report_key] where stats_key is the original key name as returned by memcached
+  # and report_key is configured nicer name with configured units appended
+  # k parameter contains the single item from the metrics option (format "stats_key:report_key")
   def key_names(k)
     keys = k.split(/\s*:\s*/)
     keys << k if keys.size == 1
